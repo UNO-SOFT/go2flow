@@ -1,0 +1,32 @@
+do(`Válasz érkezett`)
+if Q(`Igényelt állapotú`) {
+  if Q(`A B/M lekérdező üzenetre kapott`) {
+  do(`Előzmény bekötése`)
+  if Q(`Bekötés sikeres?`) {
+    if Q(`Beköthető B/M azonos`) {
+      do(`Kötvény küldés`)
+    } else {
+      do(`GFB kötvény`)
+    }
+  }
+} else {
+  if Q(`A B/M lekérdező üzenetre kapott válaszban`) {
+    if Q(`Kapott már levelet?`) {
+    } else {
+      do(`„Nem felhasználható előzmény” sablon bejegyzése`)
+    }
+  if Q(`A B/M lekérdező üzenetre kapott válaszban`) {
+      do(`Utolsó B/M módosító üzenet előjegyzése`)
+      }
+    } else {
+      if Q(`A  B/M lekérdező üzenetre kapott válaszban`) {
+        if Q(`Kapott már levelet?`) {
+
+        } else {
+          do(`levél bejegyzése`)
+        }
+      }
+    }
+  }
+}
+// vim: set filetype=go noet:
