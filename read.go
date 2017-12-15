@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	wordwrap "github.com/mitchellh/go-wordwrap"
 	"github.com/pkg/errors"
 )
 
@@ -33,16 +35,26 @@ func Main() error {
 			return err
 		}
 	}
-	defer fh.Close()
+	var buf bytes.Buffer
+	_, err := io.Copy(&buf, fh)
+	fh.Close()
+	if err != nil {
+		return err
+	}
+	src := buf.String()
+	buf.Reset()
 
-	r := io.MultiReader(
-		strings.NewReader(`package main
+	r := io.Reader(strings.NewReader(src))
+	if !(strings.HasPrefix(src, "package ") || strings.Contains(src, "\npackage ")) {
+		r = io.MultiReader(
+			strings.NewReader(`package main
 func do(s string) error { return nil }
 func Q(s string) bool { return true }
 func main() {`),
-		fh,
-		strings.NewReader("\n}\n"),
-	)
+			strings.NewReader("\n}\n"),
+		)
+	}
+
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, fn, r, parser.AllErrors)
 	if err != nil {
@@ -93,13 +105,13 @@ func printGraphStmts(w io.Writer, level int, stmts []Stmt) error {
 		name := fmt.Sprintf("N%03d", cnt)
 		switch x := stmt.(type) {
 		case Do:
-			fmt.Fprintf(bw, "%s  %s [shape=box label=%q]\n", prefix, name, html.EscapeString(x.What))
+			fmt.Fprintf(bw, "%s  %s [shape=box label=%q]\n", prefix, name, esc(x.What))
 			if prev != "" {
-				fmt.Fprintf(bw, "%s  %s  %s -> %s\n", prefix, prev, name)
+				fmt.Fprintf(bw, "%s  %s -> %s\n", prefix, prev, name)
 			}
 			prev = name
 		case If:
-			fmt.Fprintf(bw, "%s  %s [shape=diamond label=%q]\n", prefix, name, html.EscapeString(x.Cond))
+			fmt.Fprintf(bw, "%s  %s [shape=diamond label=%q]\n", prefix, name, esc(x.Cond))
 			if prev != "" {
 				fmt.Fprintf(bw, "%s  %s -> %s\n", prefix, prev, name)
 			}
@@ -203,4 +215,22 @@ func parseStmtList(stmtList []ast.Stmt) ([]Stmt, error) {
 		}
 	}
 	return stmts, nil
+}
+
+func esc(s string) string {
+	if s == "" {
+		return s
+	}
+	if len(s) < 2 {
+		return html.EscapeString(s)
+	}
+	if !(strings.Contains(s, "\n") || strings.Contains(s, "<br>")) {
+		s = wordwrap.WrapString(s, 30)
+	}
+	//s = strings.Replace(s, "\n", "\\n", -1)
+	if s[0] == '`' && s[len(s)-1] == '`' {
+		return html.EscapeString(s[1 : len(s)-1])
+	}
+
+	return html.EscapeString(s)
 }
